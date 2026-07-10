@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Table QR Stands — Weebji Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;700&family=Tajawal:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--ink:#2b2118;--accent:#b3541e;--gold:#c99a3f;--line:#eee4d6}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'DM Sans',sans-serif;background:#f2ece3;color:var(--ink);padding:24px}
+  .serif{font-family:'Fraunces',serif}
+  .controls{
+    max-width:720px;margin:0 auto 26px;background:#fff;border:1px solid var(--line);
+    border-radius:18px;padding:20px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;
+  }
+  .controls label{font-size:12px;font-weight:700;color:#8a7a6a;display:block;margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase}
+  .controls input{
+    border:1.5px solid var(--line);border-radius:11px;padding:10px 13px;font-size:14.5px;font-family:inherit;width:130px;
+  }
+  .controls input#slug{width:170px}
+  .controls button{
+    background:var(--ink);color:#f6ecdd;border:none;border-radius:12px;padding:12px 22px;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;
+  }
+  .controls .print{background:var(--accent)}
+  .grid{max-width:920px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px}
+  .stand{
+    background:#fff;border-radius:22px;overflow:hidden;border:1px solid var(--line);
+    box-shadow:0 2px 10px rgba(43,33,24,.07);text-align:center;
+    break-inside:avoid;page-break-inside:avoid;
+  }
+  .stand .top{background:linear-gradient(160deg,#3a2a1c,#1c120c);color:#f6ecdd;padding:18px 16px 14px}
+  .stand .rest{font-size:19px}
+  .stand .scan{color:#cdb896;font-size:12.5px;margin-top:4px;font-weight:500}
+  .stand .scan .ar{font-family:'Tajawal',sans-serif;font-weight:700}
+  .qrbox{padding:22px 0 8px;display:flex;justify-content:center}
+  .qrbox>div{padding:10px;border:2px solid var(--ink);border-radius:16px}
+  .qrbox img,.qrbox canvas{display:block}
+  .tno{font-size:15px;font-weight:700;padding:6px 0 2px}
+  .tno b{font-family:'Fraunces',serif;font-size:26px;color:var(--accent)}
+  .steps{color:#8a7a6a;font-size:11.5px;padding:8px 18px 14px;line-height:1.6}
+  .foot{border-top:1px dashed var(--line);padding:9px;font-size:10.5px;color:#b3a591}
+  .foot b{color:var(--accent)}
+  @media print{
+    body{background:#fff;padding:0}
+    .controls{display:none}
+    .grid{grid-template-columns:repeat(2,1fr);gap:14px;max-width:none}
+    .stand{box-shadow:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <div><label>Restaurant slug</label><input id="slug" value="demo"></div>
+  <div><label>Restaurant name</label><input id="rname" value="Café Al Noor"></div>
+  <div><label>Tables</label><input id="tables" type="number" value="6" min="1" max="60"></div>
+  <button onclick="gen()">Generate</button>
+  <button class="print" onclick="window.print()">🖨️ Print stands</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const BASE=location.href.replace(/qr\.html.*$/,'menu.html');
+function gen(){
+  const slug=document.getElementById('slug').value.trim()||'demo';
+  const name=document.getElementById('rname').value.trim()||'Menu';
+  const n=Math.min(60,Math.max(1,parseInt(document.getElementById('tables').value)||6));
+  const grid=document.getElementById('grid');
+  grid.innerHTML='';
+  for(let t=1;t<=n;t++){
+    const url=`${BASE}?r=${encodeURIComponent(slug)}&t=${t}`;
+    const card=document.createElement('div');
+    card.className='stand';
+    card.innerHTML=`
+      <div class="top">
+        <div class="rest serif">${name}</div>
+        <div class="scan">Scan to see the menu &amp; order · <span class="ar">امسح للطلب</span></div>
+      </div>
+      <div class="qrbox"><div id="qr-${t}"></div></div>
+      <div class="tno">TABLE <b>${t}</b></div>
+      <div class="steps">📱 Scan → 🍽️ Choose → 🔔 Order arrives at your table<br>No app. No signup. Nothing to download.</div>
+      <div class="foot">menu by <b>WEEBJI STUDIO</b> · weebji.com</div>`;
+    grid.appendChild(card);
+    new QRCode(document.getElementById('qr-'+t),{text:url,width:150,height:150,colorDark:'#2b2118',correctLevel:QRCode.CorrectLevel.M});
+  }
+}
+gen();
+</script>
+</body>
+</html>

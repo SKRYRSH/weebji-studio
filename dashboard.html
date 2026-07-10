@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Live Orders — Weebji Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#12100d; --panel:#1c1915; --panel2:#242019; --ink:#f2ead9; --muted:#9c8f7b;
+    --line:#2e2921; --accent:#d97a35; --gold:#c99a3f; --ok:#4caf7d;
+    --new:#e05d5d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh}
+  .serif{font-family:'Fraunces',serif}
+  .mono{font-family:'DM Mono',monospace}
+
+  header{
+    padding:20px 18px 16px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{font-size:19px}
+  .brand small{display:block; color:var(--muted); font-size:11.5px; font-weight:400; font-family:'DM Sans'; margin-top:3px; letter-spacing:.4px}
+  .live-dot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--ok); margin-right:6px; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* revenue counter */
+  .revenue{
+    margin:16px 18px 6px; background:linear-gradient(135deg,#2a2216,#1d1811);
+    border:1px solid #3d321f; border-radius:20px; padding:18px 20px; position:relative; overflow:hidden;
+  }
+  .revenue::after{content:''; position:absolute; inset:0; background:radial-gradient(circle at 90% 10%, rgba(201,154,63,.15), transparent 60%)}
+  .rev-label{color:var(--gold); font-size:11.5px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase}
+  .rev-value{font-size:38px; font-weight:700; margin-top:6px; font-family:'Fraunces',serif}
+  .rev-value small{font-size:16px; color:var(--muted); font-family:'DM Sans'; font-weight:500}
+  .rev-meta{color:var(--muted); font-size:12.5px; margin-top:4px}
+
+  /* tabs */
+  .tabs{display:flex; gap:8px; padding:14px 18px 4px}
+  .tab{
+    flex:1; text-align:center; padding:10px; border-radius:12px; font-size:13.5px; font-weight:700;
+    color:var(--muted); background:var(--panel); border:1px solid var(--line); cursor:pointer; font-family:inherit;
+  }
+  .tab.active{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+
+  main{padding:12px 18px 40px; max-width:640px; margin:0 auto}
+
+  /* order cards */
+  .ocard{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; margin-bottom:12px;
+    animation:none;
+  }
+  .ocard.flash{animation:arrive .7s ease}
+  @keyframes arrive{0%{transform:scale(.95); box-shadow:0 0 0 3px var(--new)}100%{transform:scale(1); box-shadow:0 0 0 0 transparent}}
+  .ohead{display:flex; justify-content:space-between; align-items:center}
+  .table-big{font-size:17px; font-weight:700}
+  .table-big span{
+    display:inline-grid; place-items:center; min-width:38px; height:38px; padding:0 8px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:12px; margin-right:9px; font-family:'Fraunces',serif; font-size:18px;
+  }
+  .badge{font-size:11px; font-weight:700; letter-spacing:1px; padding:6px 12px; border-radius:999px}
+  .badge.NEW{background:rgba(224,93,93,.15); color:#ff8b8b; border:1px solid rgba(224,93,93,.4)}
+  .badge.PREPARING{background:rgba(217,162,53,.13); color:#ecc069; border:1px solid rgba(217,162,53,.4)}
+  .badge.READY{background:rgba(76,175,125,.13); color:#7fd4a8; border:1px solid rgba(76,175,125,.4)}
+  .badge.DELIVERED{background:rgba(255,255,255,.07); color:var(--muted); border:1px solid var(--line)}
+  .olines{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px}
+  .oline{display:flex; justify-content:space-between; font-size:13.5px; padding:4px 0; color:#d8cdb8}
+  .oline .q{color:var(--gold); font-weight:700; margin-right:8px}
+  .ofoot{display:flex; justify-content:space-between; align-items:center; margin-top:12px}
+  .ototal{font-weight:700; font-size:15px}
+  .ototal small{color:var(--muted); font-weight:500}
+  .otime{color:var(--muted); font-size:12px}
+  .advance{
+    width:100%; margin-top:12px; border:none; border-radius:13px; padding:13px; font-size:14px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:transform .1s;
+  }
+  .advance:active{transform:scale(.97)}
+  .advance.to-PREPARING{background:#d9a235; color:#241b08}
+  .advance.to-READY{background:#4caf7d; color:#0b2015}
+  .advance.to-DELIVERED{background:var(--ink); color:var(--bg)}
+  .empty{text-align:center; color:var(--muted); padding:60px 20px; font-size:14px; line-height:1.7}
+  .empty .big{font-size:40px; margin-bottom:8px}
+
+  /* best sellers */
+  .bs-row{
+    display:flex; align-items:center; gap:14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:14px 16px; margin-bottom:10px;
+  }
+  .bs-rank{font-family:'Fraunces',serif; font-size:20px; color:var(--gold); min-width:28px}
+  .bs-name{flex:1; font-weight:500; font-size:14.5px}
+  .bs-count{color:var(--muted); font-size:13px}
+  .bs-bar{height:5px; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--gold)); margin-top:7px}
+
+  .toast{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%) translateY(-90px); z-index:70;
+    background:var(--new); color:#fff; padding:13px 24px; border-radius:14px; font-size:14.5px; font-weight:700;
+    transition:transform .4s cubic-bezier(.2,.9,.25,1.3); box-shadow:0 12px 34px rgba(224,93,93,.4);
+  }
+  .toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand serif" id="brandName">Live Orders
+    <small><span class="live-dot"></span>LIVE · Weebji Studio</small>
+  </div>
+  <div class="mono" id="clock" style="color:var(--muted);font-size:13px"></div>
+</header>
+
+<div class="revenue">
+  <div class="rev-label">Today's Revenue</div>
+  <div class="rev-value"><span id="revToday">0.000</span> <small>OMR</small></div>
+  <div class="rev-meta"><span id="orderCount">0</span> orders today · updates in real time</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="active" onclick="setTab('active',this)">🔥 Active <span id="activeN"></span></button>
+  <button class="tab" data-tab="done" onclick="setTab('done',this)">✅ Done</button>
+  <button class="tab" data-tab="best" onclick="setTab('best',this)">⭐ Best Sellers</button>
+</div>
+
+<main id="board"></main>
+<div class="toast" id="toast">🔔 New order — Table 4</div>
+
+<script>
+const SB_URL='https://nmhxrathmbyntpsihmqa.supabase.co';
+const SB_KEY='sb_publishable_Sw2TyzTk8QYwXDrZRvu0fw_uGdZ6hwI';
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+
+const qs=new URLSearchParams(location.search);
+const SLUG=qs.get('r')||'demo';
+const NEXT={NEW:'PREPARING',PREPARING:'READY',READY:'DELIVERED'};
+const NEXT_LABEL={NEW:'Start preparing 👨‍🍳',PREPARING:'Mark ready ✨',READY:'Mark delivered ✅'};
+
+let REST=null, ORDERS=[], ITEMS_BY_ORDER={}, TAB='active', flashIds=new Set();
+
+function fmt(n){return Number(n).toFixed(3)}
+function todayStart(){const d=new Date();d.setHours(0,0,0,0);return d.toISOString()}
+
+// tiny "ding" without any audio file
+let actx=null;
+function ding(){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.connect(g);g.connect(actx.destination);
+    o.type='sine';o.frequency.value=880;
+    g.gain.setValueAtTime(.001,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.3,actx.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.9);
+    o.start();o.frequency.setValueAtTime(1174,actx.currentTime+.12);o.stop(actx.currentTime+1);
+  }catch(e){}
+}
+
+async function load(){
+  const {data:rest}=await sb.from('restaurants').select('*').eq('slug',SLUG).single();
+  if(!rest){document.getElementById('board').innerHTML='<div class="empty">Restaurant not found</div>';return}
+  REST=rest;
+  document.getElementById('brandName').childNodes[0].textContent=rest.name_en+' ';
+  await refresh();
+  subscribe();
+}
+
+async function refresh(){
+  const {data:orders}=await sb.from('orders').select('*')
+    .eq('restaurant_id',REST.id).gte('created_at',todayStart())
+    .order('created_at',{ascending:false});
+  ORDERS=orders||[];
+  const ids=ORDERS.map(o=>o.id);
+  ITEMS_BY_ORDER={};
+  if(ids.length){
+    const {data:items}=await sb.from('order_items').select('*').in('order_id',ids);
+    (items||[]).forEach(it=>{(ITEMS_BY_ORDER[it.order_id]=ITEMS_BY_ORDER[it.order_id]||[]).push(it)});
+  }
+  render();
+}
+
+function subscribe(){
+  sb.channel('dash-'+REST.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'orders',filter:`restaurant_id=eq.${REST.id}`},
+      async payload=>{
+        flashIds.add(payload.new.id);
+        toast(`🔔 New order — Table ${payload.new.table_no}`);
+        ding(); if(navigator.vibrate)navigator.vibrate([120,60,120]);
+        await refresh();
+      })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'orders',filter:`restaurant_id=eq.${REST.id}`},
+      ()=>refresh())
+    .subscribe();
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200)}
+
+function ago(ts){
+  const m=Math.floor((Date.now()-new Date(ts).getTime())/60000);
+  if(m<1)return 'just now';
+  if(m<60)return m+' min ago';
+  return Math.floor(m/60)+'h '+(m%60)+'m ago';
+}
+
+function setTab(tab,btn){
+  TAB=tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function render(){
+  // revenue (count everything except nothing — all placed orders count; "show money")
+  const rev=ORDERS.reduce((s,o)=>s+Number(o.total),0);
+  animateNumber('revToday',rev);
+  document.getElementById('orderCount').textContent=ORDERS.length;
+  const active=ORDERS.filter(o=>o.status!=='DELIVERED');
+  document.getElementById('activeN').textContent=active.length?`(${active.length})`:'';
+
+  const board=document.getElementById('board');
+  if(TAB==='best'){renderBest(board);return}
+  const list=TAB==='active'?active:ORDERS.filter(o=>o.status==='DELIVERED');
+  if(!list.length){
+    board.innerHTML=`<div class="empty"><div class="big">${TAB==='active'?'🪑':'🌙'}</div>${
+      TAB==='active'?'No active orders.<br>Scan a table QR and place one — watch it pop here.':'No delivered orders yet today.'}</div>`;
+    return;
+  }
+  board.innerHTML=list.map(o=>{
+    const items=(ITEMS_BY_ORDER[o.id]||[]).map(it=>
+      `<div class="oline"><span><span class="q">${it.qty}×</span>${it.name_en}</span><span>${fmt(it.qty*it.price)}</span></div>`).join('');
+    const nxt=NEXT[o.status];
+    const flash=flashIds.has(o.id)?' flash':''; flashIds.delete(o.id);
+    return `<div class="ocard${flash}">
+      <div class="ohead">
+        <div class="table-big"><span>${o.table_no}</span>Table ${o.table_no}</div>
+        <div class="badge ${o.status}">${o.status}</div>
+      </div>
+      <div class="olines">${items}</div>
+      <div class="ofoot">
+        <div class="ototal">${fmt(o.total)} <small>${REST.currency}</small></div>
+        <div class="otime">${ago(o.created_at)}</div>
+      </div>
+      ${nxt?`<button class="advance to-${nxt}" onclick="advance('${o.id}','${nxt}')">${NEXT_LABEL[o.status]}</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderBest(board){
+  const agg={};
+  Object.values(ITEMS_BY_ORDER).flat().forEach(it=>{
+    agg[it.name_en]=(agg[it.name_en]||0)+it.qty;
+  });
+  const rows=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!rows.length){board.innerHTML='<div class="empty"><div class="big">⭐</div>No sales yet today.<br>Best sellers build themselves — no reports to make.</div>';return}
+  const max=rows[0][1];
+  board.innerHTML=rows.map(([name,n],i)=>
+    `<div class="bs-row">
+      <div class="bs-rank">${i+1}</div>
+      <div class="bs-name">${name}<div class="bs-bar" style="width:${Math.max(12,(n/max)*100)}%"></div></div>
+      <div class="bs-count"><b style="color:var(--ink)">${n}</b> sold</div>
+    </div>`).join('');
+}
+
+async function advance(id,status){
+  const {error}=await sb.from('orders').update({status}).eq('id',id);
+  if(error){toast('⚠️ Update failed — try again');return}
+  if(navigator.vibrate)navigator.vibrate(40);
+  refresh();
+}
+
+let revShown=0;
+function animateNumber(elId,target){
+  const el=document.getElementById(elId);
+  const from=revShown; revShown=target;
+  const steps=18; let s=0;
+  const iv=setInterval(()=>{s++;el.textContent=fmt(from+(target-from)*(s/steps));if(s>=steps)clearInterval(iv)},28);
+}
+
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})},1000);
+setInterval(()=>{if(TAB!=='best')render()},60000); // refresh "x min ago"
+load();
+</script>
+</body>
+</html>
