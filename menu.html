@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#faf6f0; --card:#ffffff; --ink:#2b2118; --muted:#8a7a6a;
@@ -220,7 +219,22 @@
 <script>
 const SB_URL='https://nmhxrathmbyntpsihmqa.supabase.co';
 const SB_KEY='sb_publishable_Sw2TyzTk8QYwXDrZRvu0fw_uGdZ6hwI';
-const sb=window.supabase.createClient(SB_URL,SB_KEY);
+
+// supabase-js is only needed at order time (insert + realtime) — load it off the critical path
+let sb=null,sbLoading=null;
+function ensureSb(){
+  if(sb)return Promise.resolve(sb);
+  if(!sbLoading){
+    sbLoading=new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      s.onload=()=>{sb=window.supabase.createClient(SB_URL,SB_KEY);res(sb)};
+      s.onerror=()=>{sbLoading=null;rej(new Error('sb load failed'))};
+      document.head.appendChild(s);
+    });
+  }
+  return sbLoading;
+}
 
 const qs=new URLSearchParams(location.search);
 const SLUG=qs.get('r')||'demo';
@@ -257,15 +271,20 @@ async function load(){
     const c=JSON.parse(localStorage.getItem(CACHE_KEY));
     if(c&&c.rest&&c.items){REST=c.rest;ITEMS=c.items;render()}
   }catch(e){}
-  // one round trip: restaurant + items embedded
-  const {data:rest,error}=await sb.from('restaurants')
-    .select('*,menu_items(*)').eq('slug',SLUG).single();
-  if(error||!rest){if(!REST)document.getElementById('restName').textContent='Menu not found';return}
+  // one tiny REST round trip (no client library): restaurant + items embedded
+  let rest=null;
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/restaurants?select=*,menu_items(*)&slug=eq.${encodeURIComponent(SLUG)}`,
+      {headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
+    rest=(await res.json())[0];
+  }catch(e){}
+  if(!rest){if(!REST)document.getElementById('restName').textContent='Menu not found';return}
   const items=(rest.menu_items||[]).filter(i=>i.available).sort((a,b)=>a.sort-b.sort);
   delete rest.menu_items;
   REST=rest;ITEMS=items;
   try{localStorage.setItem(CACHE_KEY,JSON.stringify({rest,items}))}catch(e){}
   render();
+  ensureSb().catch(()=>{}); // warm up the order library in the background
 }
 
 function render(){
@@ -372,6 +391,7 @@ async function placeOrder(){
   const btn=document.getElementById('confirmBtn');
   btn.disabled=true;btn.textContent=t.placing;
   const {total}=cartTotals();
+  try{await ensureSb()}catch(e){btn.disabled=false;btn.textContent=t.place;toast(t.err);return}
   const {data:order,error}=await sb.from('orders')
     .insert({restaurant_id:REST.id,table_no:TABLE,status:'NEW',total})
     .select().single();
@@ -398,7 +418,8 @@ function showStatus(status,total){
   if(navigator.vibrate)navigator.vibrate(80);
 }
 
-function watchOrder(orderId){
+async function watchOrder(orderId){
+  try{await ensureSb()}catch(e){return}
   if(chan)sb.removeChannel(chan);
   chan=sb.channel('order-'+orderId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'orders',filter:`id=eq.${orderId}`},
