@@ -28,8 +28,10 @@
   /* ---------- header ---------- */
   header{
     background:linear-gradient(160deg,#3a2a1c 0%,#241811 60%,#1c120c 100%);
+    background-size:cover; background-position:center;
     color:#f6ecdd; padding:26px 20px 22px; position:relative; overflow:hidden;
   }
+  header.has-hero{text-shadow:0 1px 8px rgba(0,0,0,.55)}
   header::after{
     content:''; position:absolute; inset:0;
     background:radial-gradient(circle at 85% 15%, rgba(201,154,63,.25), transparent 55%);
@@ -76,6 +78,10 @@
   .item .emoji{
     flex:0 0 52px; height:52px; border-radius:14px; background:#f6efe4;
     display:grid; place-items:center; font-size:26px;
+  }
+  .item .photo{
+    flex:0 0 74px; width:74px; height:74px; border-radius:14px; object-fit:cover;
+    background:#f6efe4; box-shadow:0 2px 6px rgba(43,33,24,.12);
   }
   .item .info{flex:1; min-width:0}
   .item .name{font-weight:700; font-size:15px}
@@ -259,6 +265,11 @@ function render(){
   document.getElementById('langBtn').textContent=LANG==='ar'?'English':'عربي';
   document.getElementById('restName').textContent=LANG==='ar'?REST.name_ar:REST.name_en;
   document.getElementById('restTag').textContent=(LANG==='ar'?REST.tagline_ar:REST.tagline_en)||'';
+  if(REST.hero_img){
+    const h=document.querySelector('header');
+    h.classList.add('has-hero');
+    h.style.background=`linear-gradient(160deg,rgba(40,28,17,.82) 0%,rgba(28,18,12,.92) 100%),url('img/${REST.hero_img}') center/cover`;
+  }
   document.getElementById('tableLabel').textContent=t.table;
   document.getElementById('tableNo').textContent=TABLE;
   document.getElementById('sheetTitle').textContent=t.order;
@@ -280,7 +291,7 @@ function render(){
     if(cat!==lastCat){html+=`<div class="cat-title serif" id="cat-${cats.indexOf(cat)}" data-cat="${cat}">${cat}</div>`;lastCat=cat}
     const q=CART[i.id]?.qty||0;
     html+=`<div class="item">
-      <div class="emoji">${i.emoji||'🍽️'}</div>
+      ${i.img?`<img class="photo" src="img/${i.img}" alt="" loading="lazy">`:`<div class="emoji">${i.emoji||'🍽️'}</div>`}
       <div class="info">
         <div class="name">${LANG==='ar'?i.name_ar:i.name_en}</div>
         <div class="desc">${(LANG==='ar'?i.desc_ar:i.desc_en)||''}</div>
