@@ -140,8 +140,12 @@
   .sum-top{margin-top:16px; border-top:1px dashed var(--line); padding-top:13px}
   .sum-top .row{display:flex; justify-content:space-between; font-size:13.5px; padding:4px 0; color:#d8cdb8}
   .sum-top .row b{color:var(--gold); margin-right:8px}
+  .sum-report{
+    width:100%; margin-top:20px; background:rgba(217,122,53,.14); border:1px solid rgba(217,122,53,.5);
+    color:#ecab74; border-radius:13px; padding:13px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
   .sum-close{
-    width:100%; margin-top:20px; background:var(--ink); color:var(--bg); border:none; border-radius:13px;
+    width:100%; margin-top:10px; background:var(--ink); color:var(--bg); border:none; border-radius:13px;
     padding:13px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
   }
   .sum-brand{text-align:center; color:#6e6252; font-size:10.5px; margin-top:12px}
@@ -185,6 +189,7 @@
       <div class="sum-stat"><div class="v" id="sumHour">—</div><div class="k">busiest hour</div></div>
     </div>
     <div class="sum-top" id="sumTop"></div>
+    <button class="sum-report" id="sumReportBtn">📄 Full report (day / month)</button>
     <button class="sum-close" onclick="document.getElementById('sumOverlay').classList.remove('show')">Close</button>
     <div class="sum-brand">LIVE MENU BY WEEBJI STUDIO</div>
   </div>
@@ -370,6 +375,7 @@ function openSummary(){
   document.getElementById('sumOverlay').classList.add('show');
 }
 document.getElementById('sumBtn').onclick=openSummary;
+document.getElementById('sumReportBtn').onclick=()=>{location.href=`report.html?r=${encodeURIComponent(SLUG)}&p=day`};
 
 /* ---------- PWA + daily summary push ---------- */
 function b64ToU8(s){

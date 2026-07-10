@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Menu — Weebji Studio</title>
+<link rel="preconnect" href="https://nmhxrathmbyntpsihmqa.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -249,12 +250,21 @@ const STATUS_IDX={NEW:0,PREPARING:1,READY:2,DELIVERED:3};
 function fmt(n){return Number(n).toFixed(3)}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 
+const CACHE_KEY='wjs_menu_'+SLUG;
 async function load(){
-  const {data:rest,error}=await sb.from('restaurants').select('*').eq('slug',SLUG).single();
-  if(error||!rest){document.getElementById('restName').textContent='Menu not found';return}
-  REST=rest;
-  const {data:items}=await sb.from('menu_items').select('*').eq('restaurant_id',rest.id).eq('available',true).order('sort');
-  ITEMS=items||[];
+  // instant paint from cache, then refresh from network
+  try{
+    const c=JSON.parse(localStorage.getItem(CACHE_KEY));
+    if(c&&c.rest&&c.items){REST=c.rest;ITEMS=c.items;render()}
+  }catch(e){}
+  // one round trip: restaurant + items embedded
+  const {data:rest,error}=await sb.from('restaurants')
+    .select('*,menu_items(*)').eq('slug',SLUG).single();
+  if(error||!rest){if(!REST)document.getElementById('restName').textContent='Menu not found';return}
+  const items=(rest.menu_items||[]).filter(i=>i.available).sort((a,b)=>a.sort-b.sort);
+  delete rest.menu_items;
+  REST=rest;ITEMS=items;
+  try{localStorage.setItem(CACHE_KEY,JSON.stringify({rest,items}))}catch(e){}
   render();
 }
 
