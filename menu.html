@@ -297,7 +297,8 @@ function render(){
   if(REST.hero_img){
     const h=document.querySelector('header');
     h.classList.add('has-hero');
-    h.style.background=`linear-gradient(160deg,rgba(40,28,17,.82) 0%,rgba(28,18,12,.92) 100%),url('img/${REST.hero_img}') center/cover`;
+    h.style.background=`linear-gradient(160deg,rgba(120,80,45,.85) 0%,rgba(52,32,18,.96) 100%),url('img/${REST.hero_img}') center/cover`;
+    h.style.backgroundBlendMode='multiply';
   }
   document.getElementById('tableLabel').textContent=t.table;
   document.getElementById('tableNo').textContent=TABLE;

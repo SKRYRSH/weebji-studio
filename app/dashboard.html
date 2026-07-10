@@ -149,6 +149,43 @@
     padding:13px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
   }
   .sum-brand{text-align:center; color:#6e6252; font-size:10.5px; margin-top:12px}
+
+  /* add order modal */
+  .add-overlay{
+    position:fixed; inset:0; z-index:80; background:rgba(10,8,6,.75); backdrop-filter:blur(4px);
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .add-overlay.show{display:flex}
+  .add-card{
+    width:100%; max-width:560px; background:var(--panel); border:1px solid var(--line);
+    border-radius:24px 24px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height:84dvh; display:flex; flex-direction:column;
+  }
+  .add-card h2{font-size:18px; margin-bottom:2px}
+  .add-card .sub{color:var(--muted); font-size:12.5px; margin-bottom:12px}
+  .add-list{overflow-y:auto; flex:1; min-height:120px; border-top:1px solid var(--line)}
+  .ai-row{display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px dashed var(--line); font-size:14px}
+  .ai-row .nm{flex:1; font-weight:500}
+  .ai-row .pr{color:var(--muted); font-size:12.5px; min-width:52px; text-align:right}
+  .ai-row .qty{display:flex; align-items:center; gap:9px}
+  .ai-row .qty button{
+    width:30px; height:30px; border-radius:9px; border:none; cursor:pointer; font-size:17px; font-weight:700;
+    display:grid; place-items:center; font-family:inherit;
+  }
+  .ai-row .minus{background:var(--panel2); color:var(--ink); border:1px solid var(--line)}
+  .ai-row .plus{background:var(--accent); color:#fff}
+  .ai-row .n{min-width:14px; text-align:center; font-weight:700; font-size:14px}
+  .ai-row .n.zero{color:#4d4436}
+  .add-total{display:flex; justify-content:space-between; font-weight:700; font-size:16px; padding:13px 2px 4px}
+  .add-actions{display:flex; gap:9px; margin-top:10px}
+  .add-actions button{
+    flex:1; border:none; border-radius:13px; padding:14px 6px; font-size:13.5px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+  }
+  .add-actions .kitchen{background:#d9a235; color:#241b08}
+  .add-actions .sale{background:var(--ok); color:#0b2015}
+  .add-actions .cancel{flex:0 0 auto; background:var(--panel2); color:var(--muted); border:1px solid var(--line); padding:14px 16px}
+  .add-actions button:disabled{opacity:.55}
 </style>
 </head>
 <body>
@@ -159,6 +196,7 @@
   </div>
   <div class="head-actions">
     <button class="bell-btn" id="bellBtn">🔔 Daily summary</button>
+    <button class="icon-btn" id="addBtn" title="Add counter order">＋</button>
     <button class="icon-btn" id="sumBtn" title="Day summary">📊</button>
     <div class="mono" id="clock" style="color:var(--muted);font-size:13px"></div>
   </div>
@@ -178,6 +216,20 @@
 
 <main id="board"></main>
 <div class="toast" id="toast">🔔 New order — Table 4</div>
+
+<div class="add-overlay" id="addOverlay">
+  <div class="add-card">
+    <h2 class="serif">Add counter order</h2>
+    <div class="sub">Walk-in, takeaway or phone order — keeps your reports complete</div>
+    <div class="add-list" id="addList"></div>
+    <div class="add-total"><span>Total</span><span><span id="addTotal">0.000</span> <span id="addCur">OMR</span></span></div>
+    <div class="add-actions">
+      <button class="cancel" onclick="closeAddOrder()">✕</button>
+      <button class="kitchen" id="addKitchenBtn">🔔 Send to kitchen</button>
+      <button class="sale" id="addSaleBtn">✓ Record sale</button>
+    </div>
+  </div>
+</div>
 
 <div class="sum-overlay" id="sumOverlay">
   <div class="sum-card">
@@ -256,7 +308,7 @@ function subscribe(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'orders',filter:`restaurant_id=eq.${REST.id}`},
       async payload=>{
         flashIds.add(payload.new.id);
-        toast(`🔔 New order — Table ${payload.new.table_no}`);
+        toast(`🔔 New order — ${payload.new.table_no===0?'Counter':'Table '+payload.new.table_no}`);
         ding(); if(navigator.vibrate)navigator.vibrate([120,60,120]);
         await refresh();
       })
@@ -304,7 +356,7 @@ function render(){
     const flash=flashIds.has(o.id)?' flash':''; flashIds.delete(o.id);
     return `<div class="ocard${flash}">
       <div class="ohead">
-        <div class="table-big"><span>${o.table_no}</span>Table ${o.table_no}</div>
+        <div class="table-big"><span>${o.table_no===0?'🛎':o.table_no}</span>${o.table_no===0?'Counter':'Table '+o.table_no}</div>
         <div class="badge ${o.status}">${o.status}</div>
       </div>
       <div class="olines">${items}</div>
@@ -347,6 +399,70 @@ function animateNumber(elId,target){
   const steps=18; let s=0;
   const iv=setInterval(()=>{s++;el.textContent=fmt(from+(target-from)*(s/steps));if(s>=steps)clearInterval(iv)},28);
 }
+
+/* ---------- add counter order ---------- */
+let MENU=null, ADD_CART={};
+async function openAddOrder(){
+  document.getElementById('addOverlay').classList.add('show');
+  if(!MENU){
+    document.getElementById('addList').innerHTML='<div style="padding:20px;color:var(--muted);font-size:13px">Loading menu…</div>';
+    const {data}=await sb.from('menu_items').select('id,name_en,name_ar,price')
+      .eq('restaurant_id',REST.id).eq('available',true).order('sort');
+    MENU=data||[];
+  }
+  ADD_CART={};
+  renderAddList();
+}
+function closeAddOrder(){document.getElementById('addOverlay').classList.remove('show')}
+function renderAddList(){
+  document.getElementById('addCur').textContent=REST.currency;
+  document.getElementById('addList').innerHTML=MENU.map(m=>{
+    const q=ADD_CART[m.id]?.qty||0;
+    return `<div class="ai-row">
+      <span class="nm">${m.name_en}</span><span class="pr">${fmt(m.price)}</span>
+      <div class="qty">
+        <button class="minus" onclick="addChg('${m.id}',-1)">−</button>
+        <span class="n${q===0?' zero':''}" id="an-${m.id}">${q}</span>
+        <button class="plus" onclick="addChg('${m.id}',1)">＋</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateAddTotal();
+}
+function addChg(id,d){
+  const m=MENU.find(x=>x.id===id);if(!m)return;
+  const q=Math.max(0,Math.min(30,(ADD_CART[id]?.qty||0)+d));
+  if(q===0)delete ADD_CART[id];else ADD_CART[id]={m,qty:q};
+  const n=document.getElementById('an-'+id);
+  n.textContent=q;n.classList.toggle('zero',q===0);
+  updateAddTotal();
+}
+function addTotals(){return Object.values(ADD_CART).reduce((s,{m,qty})=>s+qty*Number(m.price),0)}
+function updateAddTotal(){document.getElementById('addTotal').textContent=fmt(addTotals())}
+async function submitAdd(kind){
+  const total=addTotals();
+  if(total<=0){toast('Add at least one item');return}
+  const k=document.getElementById('addKitchenBtn'),s=document.getElementById('addSaleBtn');
+  k.disabled=true;s.disabled=true;
+  try{
+    const {data:order,error}=await sb.from('orders')
+      .insert({restaurant_id:REST.id,table_no:0,status:'NEW',total}).select().single();
+    if(error||!order)throw new Error(error?.message||'insert failed');
+    const lines=Object.values(ADD_CART).map(({m,qty})=>({
+      order_id:order.id,restaurant_id:REST.id,name_en:m.name_en,name_ar:m.name_ar,qty,price:m.price
+    }));
+    const {error:e2}=await sb.from('order_items').insert(lines);
+    if(e2)throw new Error(e2.message);
+    if(kind==='sale')await sb.from('orders').update({status:'DELIVERED'}).eq('id',order.id);
+    closeAddOrder();
+    refresh();
+  }catch(e){toast('⚠️ Failed — try again')}
+  k.disabled=false;s.disabled=false;
+}
+document.getElementById('addBtn').onclick=openAddOrder;
+document.getElementById('addKitchenBtn').onclick=()=>submitAdd('kitchen');
+document.getElementById('addSaleBtn').onclick=()=>submitAdd('sale');
+document.getElementById('addOverlay').addEventListener('click',e=>{if(e.target.id==='addOverlay')closeAddOrder()});
 
 /* ---------- day summary ---------- */
 function busiestHour(){
