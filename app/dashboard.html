@@ -266,10 +266,16 @@ function fmt(n){return Number(n).toFixed(3)}
 function todayStart(){const d=new Date();d.setHours(0,0,0,0);return d.toISOString()}
 
 // tiny "ding" without any audio file
+// browsers keep AudioContext suspended until the user taps the page once — unlock
+// on first interaction, else the new-order ding is silently swallowed
 let actx=null;
+document.addEventListener('pointerdown',()=>{
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume()}catch(e){}
+},{once:true});
 function ding(){
   try{
     actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
     const o=actx.createOscillator(),g=actx.createGain();
     o.connect(g);g.connect(actx.destination);
     o.type='sine';o.frequency.value=880;
