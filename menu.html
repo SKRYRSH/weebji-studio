@@ -225,12 +225,19 @@ let sb=null,sbLoading=null;
 function ensureSb(){
   if(sb)return Promise.resolve(sb);
   if(!sbLoading){
+    // vendored copy first (same-origin, immune to CDN outages), CDN fallback
+    // NOTE: supabase-js dropped the UMD build after 2.110.0 — never use a floating @2 URL
+    const srcs=['vendor/supabase.min.js',
+                'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.min.js'];
     sbLoading=new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload=()=>{sb=window.supabase.createClient(SB_URL,SB_KEY);res(sb)};
-      s.onerror=()=>{sbLoading=null;rej(new Error('sb load failed'))};
-      document.head.appendChild(s);
+      (function tryLoad(i){
+        if(i>=srcs.length){sbLoading=null;rej(new Error('sb load failed'));return}
+        const s=document.createElement('script');
+        s.src=srcs[i];
+        s.onload=()=>{sb=window.supabase.createClient(SB_URL,SB_KEY);res(sb)};
+        s.onerror=()=>{s.remove();tryLoad(i+1)};
+        document.head.appendChild(s);
+      })(0);
     });
   }
   return sbLoading;
